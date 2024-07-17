@@ -1,5 +1,9 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common import NoSuchElementException, ElementNotInteractableException
+from selenium.webdriver.chrome.options import Options
 from pushbullet import PushBullet
 import tkinter as tk
 import time
@@ -25,19 +29,35 @@ class ProductZara:
         self.size = size
         self.link = link
 
-    def check_size(self):
+    def buy(self):
         DRIVER.get(self.link)
 
-        elements = DRIVER.find_elements(By.CLASS_NAME, "product-size-info__size")
+        elements = DRIVER.find_elements(By.CLASS_NAME, "size-selector-list__item")
 
         try:
             element = next(el for el in elements if el.find_element(By.CLASS_NAME, "product-size-info__main-label").text == self.size)
         except StopIteration:
             return False
 
-        if not 'PODOBNE' in element.text:
+        if not 'size-selector-list__item--out-of-stock' in element.get_attribute("class"):
+
+            errors = [NoSuchElementException, ElementNotInteractableException]
+            wait = WebDriverWait(DRIVER, timeout=3, poll_frequency=.2, ignored_exceptions=errors)
+
+            cookie = wait.until(lambda d : DRIVER.find_element(By.ID, 'onetrust-reject-all-handler') or True)
+
+            wait.until(lambda d : cookie.click() or True)
+            wait.until(lambda d : element.click() or True)
+
+            cart_adding_button = wait.until(lambda d : DRIVER.find_element(By.CLASS_NAME, 'product-cart-buttons__first-row') or True)
+            wait.until(lambda d : cart_adding_button.click() or True)
+
+            cart_button = wait.until(lambda d : DRIVER.find_element(By.CLASS_NAME, 'add-to-cart-notification__cart-button') or True)
+            wait.until(lambda d : cart_button.click() or True)
+
             pb = PushBullet(ACCESS_TOKEN)
             push = pb.push_note('PRODUKT DOSTĘPNY', self.name)
+
             return True
         else:
             return False
@@ -68,9 +88,12 @@ class ProductZara:
 #
 # window.mainloop()
 
-prod = ProductZara('https://www.zara.com/pl/pl/popelinowy-top-z-wiazaniem-p02715200.html', 'S')
+if __name__ == "__main__":
 
-while not prod.check_size():
-    time.sleep(3)
+    prod = ProductZara('https://www.zara.com/pl/pl/popelinowy-top-z-wiazaniem-p02715200.html', 'XXL')
 
-DRIVER.quit()
+    while not prod.buy():
+        time.sleep(3)
+
+    while True:
+        pass
