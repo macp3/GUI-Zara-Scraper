@@ -10,6 +10,7 @@ import time
 import os
 from dotenv import load_dotenv
 from functools import partial
+import threading as th
 
 ##########################################################
 load_dotenv()
@@ -99,11 +100,11 @@ class AddingForm:
 
         self.size_var = tk.StringVar(self.add_window, "S")
         
-        submit_button = tk.Button(self.add_window, width=10, text='Add', command=self.add_product_to_list)
-        submit_button.place(x=210, y=140)
+        self.submit_button = tk.Button(self.add_window, width=10, text='Add', command=self.add_product_to_list)
+        self.submit_button.place(x=210, y=140)
 
-        cancel_button = tk.Button(self.add_window, width=10, text='Cancel', command=self.cancel_adding_form)
-        cancel_button.place(x=310, y=140)
+        self.cancel_button = tk.Button(self.add_window, width=10, text='Cancel', command=self.cancel_adding_form)
+        self.cancel_button.place(x=310, y=140)
 
 
         self.alert_label_text = tk.StringVar(self.add_window)
@@ -111,7 +112,17 @@ class AddingForm:
         self.alert_label.place(x=180, y=190)
 
         self.radioButtons = []
+    
+    def check_size():
+        pass
 
+    def cancel_adding_form():
+        pass
+
+    def cancel_adding_form(self):
+        self.add_window.destroy()
+
+class AddingFormZara(AddingForm):
     def check_size(self):
         try:
             self.sizes = []
@@ -150,11 +161,6 @@ class AddingForm:
         except Exception:
             self.alert_label_text.set("Załaduj najpierw rozmiary produktu")
 
-
-    def cancel_adding_form(self):
-        self.add_window.destroy()
-
-
 def reset_ListBox():
     listBox.delete(0, tk.END)
     for i in range(len(products)):
@@ -163,7 +169,10 @@ def reset_ListBox():
 
 
 def add_form_func():
-        form = AddingForm()
+    if not lookup:
+        form = AddingFormZara()
+    else:
+        pass
 
 def remove_product():
     for i in listBox.curselection():
@@ -171,23 +180,35 @@ def remove_product():
     reset_ListBox()
 
 def start_lookup():
+    global lookup_thread
+    lookup_thread = th.Thread(target=lookup_thread_func)
+    lookup_thread.start()
+
+def lookup_thread_func():
+    global lookup
     lookup = True
     while lookup:
         for prod in products:
-            prod.buy()
             time.sleep(0.5)
+            if prod.buy():
+                lookup = False
+                break
         time.sleep(1)
 
 def stop_lookup():
+    global lookup
     lookup = False
+    global lookup_thread
+    lookup_thread.join()
 
+lookup_thread = 0
 
 if __name__ == "__main__":
     window = tk.Tk()
     window.title("Product finder")
     
     products.append(ProductZara('https://www.zara.com/pl/pl/popelinowy-top-z-wiazaniem-p02715200.html', 'S'))
-    products.append(ProductZara('https://www.zara.com/pl/pl/top-typu-gorset-z-koronki-p03067068.html', 'XXL'))
+    products.append(ProductZara('https://www.zara.com/pl/pl/top-typu-gorset-z-koronki-p03067068.html', 'L'))
     products.append(ProductZara('https://www.zara.com/pl/pl/top-z-odkrytymi-plecami-p02891777.html', 'L'))
     
     listBox = tk.Listbox(window, width=100)
