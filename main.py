@@ -6,11 +6,14 @@ from selenium.common import NoSuchElementException, ElementNotInteractableExcept
 from selenium.webdriver.chrome.options import Options
 from pushbullet import PushBullet
 import tkinter as tk
+from tkinter import ttk
 import time
 import os
 from dotenv import load_dotenv
 from functools import partial
 import threading as th
+import sv_ttk
+import pywinstyles, sys
 
 ##########################################################
 load_dotenv()
@@ -23,21 +26,41 @@ ACCESS_TOKEN = os.getenv('PUSH_BULLET_API_KEY')
 products = []
 
 ##########################################################
+
+def apply_theme_to_titlebar(window: tk.Tk | tk.Toplevel):
+    version = sys.getwindowsversion()
+
+    if version.major == 10 and version.build >= 22000:
+        pywinstyles.change_header_color(window, "#1c1c1c")
+    elif version.major == 10:
+        pywinstyles.apply_style(window, "dark")
+
+        window.wm_attributes("-alpha", 0.99)
+        window.wm_attributes("-alpha", 1)
+        
+
+##########################################################
 class MainWindow():
     def __init__(self) -> None:
         self.window = tk.Tk()
         self.window.title("Product finder")
+        self.window.iconbitmap("./assets/icon.ico")
+        self.window.geometry("600x215")
+        self.window.protocol("WM_DELETE_WINDOW", self.stop_app)
 
-        self.listBox = tk.Listbox(self.window, width=100)
+        apply_theme_to_titlebar(self.window)
+        sv_ttk.set_theme('Dark', self.window)
+
+        self.listBox = tk.Listbox(self.window, width=130)
 
         self.reset_ListBox()
 
         self.lookup_thread = 0
         self.lookup = False
-        self.add_button = tk.Button(self.window, width=10, text='Add', command=self.add_form_func)
-        self.remove_button = tk.Button(self.window, width=10, text='Remove', command=self.remove_product)
-        self.run_button = tk.Button(self.window, width=10, text='Run', command=self.start_lookup)
-        self.stop_button = tk.Button(self.window, width=10, text='Stop', command=self.stop_lookup)
+        self.add_button = ttk.Button(self.window, width=10, text='Add', command=self.add_form_func)
+        self.remove_button = ttk.Button(self.window, width=10, text='Remove', command=self.remove_product)
+        self.run_button = ttk.Button(self.window, width=10, text='Run', command=self.start_lookup)
+        self.stop_button = ttk.Button(self.window, width=10, text='Stop', command=self.stop_lookup)
 
         self.listBox.pack(padx=2, pady=2)
 
@@ -48,6 +71,13 @@ class MainWindow():
 
         self.window.mainloop()
 
+    def stop_app(self):
+        self.stop_lookup()
+        self.stop_driver()
+        if not DRIVER == 0: 
+            DRIVER.quit()
+        self.window.destroy()
+
     def start_driver(self):
         global DRIVER
         if not DRIVER:
@@ -57,7 +87,7 @@ class MainWindow():
     def stop_driver(self):
         global DRIVER
         if not DRIVER == 0:
-            DRIVER.close()
+            DRIVER.quit()
             DRIVER = 0
 
     def reset_ListBox(self):
@@ -65,7 +95,6 @@ class MainWindow():
         for i in range(len(products)):
             products[i].id = i+1
             self.listBox.insert(i+1, str(products[i]))
-
 
     def add_form_func(self):
         if not self.lookup:
@@ -79,7 +108,7 @@ class MainWindow():
         self.reset_ListBox()
 
     def start_lookup(self):
-        if self.start_driver():
+        if len(products) > 0 and self.start_driver():
             self.lookup_thread = th.Thread(target=self.lookup_thread_func)
             self.lookup_thread.start()
 
@@ -99,7 +128,6 @@ class MainWindow():
             self.lookup = False
             self.lookup_thread.join() 
             self.stop_driver()
-
 
 class ProductZara:
     def __init__(self, link: str, size: str, main: MainWindow):
@@ -166,52 +194,65 @@ class AddingForm:
     def __init__(self, mainFrame: MainWindow) -> None:
         self.add_window = tk.Toplevel()
         self.add_window.title('Add product')
-        self.add_window.geometry("600x220")
+        self.add_window.iconbitmap("./assets/icon.ico")
+        self.add_window.geometry("600x250")
+        apply_theme_to_titlebar(self.add_window)
 
         self.main = mainFrame
 
         self.add_window.grab_set()
 
-        self.link_label = tk.Label(self.add_window, text='Link do zary: ')
-        self.link_label.pack()
-        self.link_entry = tk.Entry(self.add_window, width=300)
+        self.link_label = ttk.Label(self.add_window, text='Zara link: ')
+        self.link_label.pack(pady=15)
+        self.link_entry = ttk.Entry(self.add_window, width=300)
         self.link_entry.pack()
 
         self.sizes = []
-        size_button = tk.Button(self.add_window, width=10, text='Check sizes', command=self.check_size)
+        size_button = ttk.Button(self.add_window, width=10, text='Check sizes', command=self.check_size)
         size_button.pack(pady=10)
 
-        self.size_label = tk.Label(self.add_window, text='Rozmiar: ')
+        self.size_label = ttk.Label(self.add_window, text='Sizes: ')
         self.size_label.pack()
+
+        self.sizes_frame = ttk.Frame(self.add_window, borderwidth=10)
+        self.sizes_frame.pack()
 
         self.size_var = tk.StringVar(self.add_window, "S")
         
-        self.submit_button = tk.Button(self.add_window, width=10, text='Add', command=self.add_product_to_list)
-        self.submit_button.place(x=210, y=140)
+        self.button_frame = ttk.Frame(self.add_window)
+        self.button_frame.pack(pady=10)
 
-        self.cancel_button = tk.Button(self.add_window, width=10, text='Cancel', command=self.cancel_adding_form)
-        self.cancel_button.place(x=310, y=140)
+        self.submit_button = ttk.Button(self.button_frame, width=10, text='Add', command=self.add_product_to_list)
+        self.submit_button.pack(side=tk.LEFT, padx=20)
+
+        self.cancel_button = ttk.Button(self.button_frame, width=10, text='Cancel', command=self.cancel_adding_form)
+        self.cancel_button.pack(side=tk.LEFT, padx=20)
 
 
         self.alert_label_text = tk.StringVar(self.add_window)
-        self.alert_label = tk.Label(self.add_window, textvariable=self.alert_label_text)
-        self.alert_label.place(x=180, y=190)
+        self.alert_label = ttk.Label(self.add_window, textvariable=self.alert_label_text)
+        self.alert_label.pack(side=tk.BOTTOM)
 
         self.radioButtons = []
 
-    def check_size(self, main: MainWindow):
+    def check_size(self):
         pass
 
     def add_product_to_list(self):
         pass
     
     def cancel_adding_form(self):
+        self.add_window.grab_release()
         self.add_window.destroy()
         self.main.stop_driver()
 
 class AddingFormZara(AddingForm):
     def check_size(self):
         try:
+            link = str(self.link_entry.get()).strip()
+            if link == '':
+                raise InvalidArgumentException
+
             if self.main.start_driver():
 
                 self.sizes = []
@@ -219,20 +260,19 @@ class AddingFormZara(AddingForm):
                 for but in self.radioButtons:
                     but.destroy()
 
-                DRIVER.get(self.link_entry.get())
+                DRIVER.get(link)
                 size_buttons = DRIVER.find_elements(By.CLASS_NAME, "size-selector-list__item")
 
                 for size_button in size_buttons:
                     self.sizes.append(size_button.text.split('\n')[0])
 
-                x=70
                 for size in self.sizes:
-                    x+=60
-                    R = tk.Radiobutton(self.add_window, text=size, variable=self.size_var, value=size)
-                    R.place(x=x, y=110)
+                    R = ttk.Radiobutton(self.sizes_frame, text=size, variable=self.size_var, value=size)
+                    R.pack(side=tk.LEFT)
                     self.radioButtons.append(R)
         except (InvalidArgumentException, NoSuchElementException):
             self.alert_label_text.set("Niepoprawny link do produktu")
+            self.main.stop_driver()
 
     def add_product_to_list(self):
         try:
@@ -244,6 +284,7 @@ class AddingFormZara(AddingForm):
 
             self.main.reset_ListBox()
 
+            self.add_window.grab_release()
             self.add_window.destroy()
             self.main.stop_driver()
         except ValueError:
@@ -252,7 +293,6 @@ class AddingFormZara(AddingForm):
             self.alert_label_text.set("Niepoprawny link do produktu")
         except Exception:
             self.alert_label_text.set("Załaduj najpierw rozmiary produktu")
-
 
 if __name__ == '__main__':
     mainFrame = MainWindow()
