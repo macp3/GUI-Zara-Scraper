@@ -15,7 +15,7 @@ import threading as th
 ##########################################################
 load_dotenv()
 
-DRIVER = webdriver.Chrome()
+DRIVER = 0
 ACCESS_TOKEN = os.getenv('PUSH_BULLET_API_KEY')
 
 ##########################################################
@@ -48,6 +48,18 @@ class MainWindow():
 
         self.window.mainloop()
 
+    def start_driver(self):
+        global DRIVER
+        if not DRIVER:
+            DRIVER = webdriver.Chrome()
+        return DRIVER
+    
+    def stop_driver(self):
+        global DRIVER
+        if not DRIVER == 0:
+            DRIVER.close()
+            DRIVER = 0
+
     def reset_ListBox(self):
         self.listBox.delete(0, tk.END)
         for i in range(len(products)):
@@ -67,10 +79,12 @@ class MainWindow():
         self.reset_ListBox()
 
     def start_lookup(self):
-        self.lookup_thread = th.Thread(target=self.lookup_thread_func)
-        self.lookup_thread.start()
+        if self.start_driver():
+            self.lookup_thread = th.Thread(target=self.lookup_thread_func)
+            self.lookup_thread.start()
 
     def lookup_thread_func(self):
+        self.start_driver()
         self.lookup = True
         while self.lookup:
             for prod in products:
@@ -81,26 +95,36 @@ class MainWindow():
             time.sleep(1)
 
     def stop_lookup(self):
-        self.lookup = False
-        self.lookup_thread.join()
+        if self.lookup == True:
+            self.lookup = False
+            self.lookup_thread.join() 
+            self.stop_driver()
+
 
 class ProductZara:
-    def __init__(self, link: str, size: str):
-        DRIVER.get(link)
-        self.id = len(products) + 1
-        self.name = DRIVER.find_element(By.CLASS_NAME, 'product-detail-info__header-name').text
+    def __init__(self, link: str, size: str, main: MainWindow):
+        self.mainFrame = main
 
-        size_buttons = DRIVER.find_elements(By.CLASS_NAME, 'size-selector-list__item')
+        if self.mainFrame.start_driver():
+            DRIVER.get(link)
+            self.id = len(products) + 1
+            self.name = DRIVER.find_element(By.CLASS_NAME, 'product-detail-info__header-name').text
 
-        for size_button in size_buttons:
-            if size_button.text.split('\n')[0] == size:
-                self.size = size
-                break
+            size_buttons = DRIVER.find_elements(By.CLASS_NAME, 'size-selector-list__item')
+
+            for size_button in size_buttons:
+                if size_button.text.split('\n')[0] == size:
+                    self.size = size
+                    break
+            else:
+                raise ValueError("Wrong size for this product")
+
+            self.size = size
+            self.link = link
+
+            self.mainFrame.stop_driver()
         else:
-            raise ValueError("Wrong size for this product")
-
-        self.size = size
-        self.link = link
+            raise Exception("Not able to start DRIVER")
 
     def buy(self):
         DRIVER.get(self.link)
@@ -174,43 +198,54 @@ class AddingForm:
         self.alert_label.place(x=180, y=190)
 
         self.radioButtons = []
+
+    def check_size(self, main: MainWindow):
+        pass
+
+    def add_product_to_list(self):
+        pass
     
     def cancel_adding_form(self):
         self.add_window.destroy()
+        self.main.stop_driver()
 
 class AddingFormZara(AddingForm):
     def check_size(self):
         try:
-            self.sizes = []
+            if self.main.start_driver():
 
-            for but in self.radioButtons:
-                but.destroy()
+                self.sizes = []
 
-            DRIVER.get(self.link_entry.get())
-            size_buttons = DRIVER.find_elements(By.CLASS_NAME, "size-selector-list__item")
+                for but in self.radioButtons:
+                    but.destroy()
 
-            for size_button in size_buttons:
-                self.sizes.append(size_button.text.split('\n')[0])
+                DRIVER.get(self.link_entry.get())
+                size_buttons = DRIVER.find_elements(By.CLASS_NAME, "size-selector-list__item")
 
-            x=70
-            for size in self.sizes:
-                x+=60
-                R = tk.Radiobutton(self.add_window, text=size, variable=self.size_var, value=size)
-                R.place(x=x, y=110)
-                self.radioButtons.append(R)
+                for size_button in size_buttons:
+                    self.sizes.append(size_button.text.split('\n')[0])
+
+                x=70
+                for size in self.sizes:
+                    x+=60
+                    R = tk.Radiobutton(self.add_window, text=size, variable=self.size_var, value=size)
+                    R.place(x=x, y=110)
+                    self.radioButtons.append(R)
         except (InvalidArgumentException, NoSuchElementException):
             self.alert_label_text.set("Niepoprawny link do produktu")
 
     def add_product_to_list(self):
         try:
+            
             if len(self.sizes) == 0:
                 raise Exception
-            product = ProductZara(self.link_entry.get(), self.size_var.get())
+            product = ProductZara(self.link_entry.get(), self.size_var.get(), self.main)
             products.append(product)
 
             self.main.reset_ListBox()
 
             self.add_window.destroy()
+            self.main.stop_driver()
         except ValueError:
             self.alert_label_text.set("Nie ma takiego rozmiaru dla tego produktu")
         except (InvalidArgumentException, NoSuchElementException):
@@ -220,10 +255,5 @@ class AddingFormZara(AddingForm):
 
 
 if __name__ == '__main__':
-    # for testing
-    products.append(ProductZara('https://www.zara.com/pl/pl/popelinowy-top-z-wiazaniem-p02715200.html', 'S'))
-    products.append(ProductZara('https://www.zara.com/pl/pl/top-typu-gorset-z-koronki-p03067068.html', 'L'))
-    products.append(ProductZara('https://www.zara.com/pl/pl/top-z-odkrytymi-plecami-p02891777.html', 'L'))
-    
     mainFrame = MainWindow()
     
