@@ -21,9 +21,69 @@ ACCESS_TOKEN = os.getenv('PUSH_BULLET_API_KEY')
 ##########################################################
 
 products = []
-lookup = False
 
 ##########################################################
+class MainWindow():
+    def __init__(self) -> None:
+        self.window = tk.Tk()
+        self.window.title("Product finder")
+
+        self.listBox = tk.Listbox(self.window, width=100)
+
+        self.reset_ListBox()
+
+        self.lookup_thread = 0
+        self.lookup = False
+        self.add_button = tk.Button(self.window, width=10, text='Add', command=self.add_form_func)
+        self.remove_button = tk.Button(self.window, width=10, text='Remove', command=self.remove_product)
+        self.run_button = tk.Button(self.window, width=10, text='Run', command=self.start_lookup)
+        self.stop_button = tk.Button(self.window, width=10, text='Stop', command=self.stop_lookup)
+
+        self.listBox.pack(padx=2, pady=2)
+
+        self.add_button.pack(side=tk.LEFT, padx=(4, 2), pady=(2, 4))
+        self.remove_button.pack(side=tk.LEFT, padx=2, pady=(2, 4))
+        self.run_button.pack(side=tk.RIGHT, padx=(2, 4), pady=(2, 4))
+        self.stop_button.pack(side=tk.RIGHT, padx=2, pady=(2, 4))
+
+        self.window.mainloop()
+
+    def reset_ListBox(self):
+        self.listBox.delete(0, tk.END)
+        for i in range(len(products)):
+            products[i].id = i+1
+            self.listBox.insert(i+1, str(products[i]))
+
+
+    def add_form_func(self):
+        if not self.lookup:
+            form = AddingFormZara(self)
+        else:
+            pass # alert to add
+
+    def remove_product(self):
+        for i in self.listBox.curselection():
+            products.pop(int(self.listBox.get(i)[0])-1)
+        self.reset_ListBox()
+
+    def start_lookup(self):
+        self.lookup_thread = th.Thread(target=self.lookup_thread_func)
+        self.lookup_thread.start()
+
+    def lookup_thread_func(self):
+        self.lookup = True
+        while self.lookup:
+            for prod in products:
+                time.sleep(0.5)
+                if prod.buy():
+                    self.lookup = False
+                    break
+            time.sleep(1)
+
+    def stop_lookup(self):
+        self.lookup = False
+        self.lookup_thread.join()
+
 class ProductZara:
     def __init__(self, link: str, size: str):
         DRIVER.get(link)
@@ -79,10 +139,12 @@ class ProductZara:
         return str(self.id) + " " + self.name + ", " + self.size
     
 class AddingForm:
-    def __init__(self) -> None:
+    def __init__(self, mainFrame: MainWindow) -> None:
         self.add_window = tk.Toplevel()
         self.add_window.title('Add product')
         self.add_window.geometry("600x220")
+
+        self.main = mainFrame
 
         self.add_window.grab_set()
 
@@ -113,12 +175,6 @@ class AddingForm:
 
         self.radioButtons = []
     
-    def check_size():
-        pass
-
-    def cancel_adding_form():
-        pass
-
     def cancel_adding_form(self):
         self.add_window.destroy()
 
@@ -151,7 +207,8 @@ class AddingFormZara(AddingForm):
                 raise Exception
             product = ProductZara(self.link_entry.get(), self.size_var.get())
             products.append(product)
-            reset_ListBox()
+
+            self.main.reset_ListBox()
 
             self.add_window.destroy()
         except ValueError:
@@ -161,70 +218,12 @@ class AddingFormZara(AddingForm):
         except Exception:
             self.alert_label_text.set("Załaduj najpierw rozmiary produktu")
 
-def reset_ListBox():
-    listBox.delete(0, tk.END)
-    for i in range(len(products)):
-        products[i].id = i+1
-        listBox.insert(i+1, str(products[i]))
 
-
-def add_form_func():
-    if not lookup:
-        form = AddingFormZara()
-    else:
-        pass
-
-def remove_product():
-    for i in listBox.curselection():
-        products.pop(int(listBox.get(i)[0])-1)
-    reset_ListBox()
-
-def start_lookup():
-    global lookup_thread
-    lookup_thread = th.Thread(target=lookup_thread_func)
-    lookup_thread.start()
-
-def lookup_thread_func():
-    global lookup
-    lookup = True
-    while lookup:
-        for prod in products:
-            time.sleep(0.5)
-            if prod.buy():
-                lookup = False
-                break
-        time.sleep(1)
-
-def stop_lookup():
-    global lookup
-    lookup = False
-    global lookup_thread
-    lookup_thread.join()
-
-lookup_thread = 0
-
-if __name__ == "__main__":
-    window = tk.Tk()
-    window.title("Product finder")
-    
+if __name__ == '__main__':
+    # for testing
     products.append(ProductZara('https://www.zara.com/pl/pl/popelinowy-top-z-wiazaniem-p02715200.html', 'S'))
     products.append(ProductZara('https://www.zara.com/pl/pl/top-typu-gorset-z-koronki-p03067068.html', 'L'))
     products.append(ProductZara('https://www.zara.com/pl/pl/top-z-odkrytymi-plecami-p02891777.html', 'L'))
     
-    listBox = tk.Listbox(window, width=100)
+    mainFrame = MainWindow()
     
-    reset_ListBox()
-    
-    add_button = tk.Button(window, width=10, text='Add', command=add_form_func)
-    remove_button = tk.Button(window, width=10, text='Remove', command=remove_product)
-    run_button = tk.Button(window, width=10, text='Run', command=start_lookup)
-    stop_button = tk.Button(window, width=10, text='Stop', command=stop_lookup)
-    
-    listBox.pack(padx=2, pady=2)
-    
-    add_button.pack(side=tk.LEFT, padx=(4, 2), pady=(2, 4))
-    remove_button.pack(side=tk.LEFT, padx=2, pady=(2, 4))
-    run_button.pack(side=tk.RIGHT, padx=(2, 4), pady=(2, 4))
-    stop_button.pack(side=tk.RIGHT, padx=2, pady=(2, 4))
-    
-    window.mainloop()
