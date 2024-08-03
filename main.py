@@ -80,8 +80,11 @@ class MainWindow():
 
     def start_driver(self):
         global DRIVER
-        if not DRIVER:
-            DRIVER = webdriver.Chrome()
+        if DRIVER == 0:
+            options = Options()
+            options.add_argument("--disable-search-engine-choice-screen")
+            DRIVER = webdriver.Chrome(options=options)
+            DRIVER.minimize_window()
         return DRIVER
     
     def stop_driver(self):
@@ -165,6 +168,7 @@ class ProductZara:
             return False
 
         if not 'size-selector-list__item--out-of-stock' in element.get_attribute("class"):
+            DRIVER.maximize_window()
 
             errors = [NoSuchElementException, ElementNotInteractableException]
             wait = WebDriverWait(DRIVER, timeout=3, poll_frequency=.2, ignored_exceptions=errors)
@@ -276,7 +280,6 @@ class AddingFormZara(AddingForm):
 
     def add_product_to_list(self):
         try:
-            
             if len(self.sizes) == 0:
                 raise Exception
             product = ProductZara(self.link_entry.get(), self.size_var.get(), self.main)
